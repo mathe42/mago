@@ -32,7 +32,14 @@ pub fn handle_signature_help(
         return Ok(None);
     };
 
-    let offset = convert::lsp_position_to_offset(&file, position) as usize;
+    let byte_offset = convert::lsp_position_to_offset(&file, position);
+
+    // Check if cursor is inside an embedded SQL region first.
+    if let Some(sig_help) = super::embedded::get_embedded_signature_help(&file, byte_offset) {
+        return Ok(Some(sig_help));
+    }
+
+    let offset = byte_offset as usize;
     let source = &file.contents;
 
     // Find the function name and active parameter index from text before cursor.

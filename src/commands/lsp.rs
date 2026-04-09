@@ -81,7 +81,24 @@ impl LspCommand {
         let parser_settings = orchestrator.config.parser_settings;
         let stack_size = configuration.stack_size;
 
-        // 4. Start LSP on a thread with a large stack (needed for parsing very large files).
+        // 4. Load SQL schema from db-schema.json if present.
+        let schema_path = workspace.join("db-schema.json");
+        let sql_schema = if schema_path.exists() {
+            match mago_embedded_languages::sql::schema::SqlSchema::load_from_file(&schema_path) {
+                Ok(s) => {
+                    tracing::info!("loaded SQL schema from {}", schema_path.display());
+                    Some(s)
+                }
+                Err(e) => {
+                    tracing::warn!("failed to load SQL schema: {}", e);
+                    None
+                }
+            }
+        } else {
+            None
+        };
+
+        // 5. Start LSP on a thread with a large stack (needed for parsing very large files).
         //    The default thread stack (1-8 MB) is too small for files like data.inc.php (46k lines).
         let lsp_config = mago_lsp::LspConfig {
             workspace,
@@ -89,6 +106,7 @@ impl LspCommand {
             analysis_service,
             parser_settings,
             ignored_diagnostics: configuration.analyzer.ignore.clone(),
+            sql_schema,
         };
 
         let lsp_stack_size = stack_size.max(64 * 1024 * 1024); // at least 64 MB

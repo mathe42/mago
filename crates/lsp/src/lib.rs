@@ -22,6 +22,8 @@ pub struct LspConfig {
     pub parser_settings: ParserSettings,
     /// Analyzer ignore rules from `[analyzer] ignore` in mago.toml.
     pub ignored_diagnostics: Vec<IgnoreEntry>,
+    /// Optional SQL schema loaded from `db-schema.json` in the workspace root.
+    pub sql_schema: Option<mago_embedded_languages::sql::schema::SqlSchema>,
 }
 
 /// Starts the LSP server over stdio.

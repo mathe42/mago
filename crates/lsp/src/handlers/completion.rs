@@ -55,7 +55,7 @@ pub fn handle_completion(
     let source = &file.contents;
 
     // Check if cursor is inside an embedded language region (SQL/Bash).
-    if let Some(embedded_items) = super::embedded::get_embedded_completions(&file, offset) {
+    if let Some(embedded_items) = super::embedded::get_embedded_completions(&file, offset, state.sql_schema.as_ref()) {
         if !embedded_items.is_empty() {
             return Ok(Some(embedded_items));
         }

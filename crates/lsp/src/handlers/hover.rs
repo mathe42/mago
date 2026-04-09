@@ -34,6 +34,11 @@ pub fn handle_hover(state: &LspState, params: HoverParams) -> Result<Option<Hove
 
     let offset = convert::lsp_position_to_offset(&file, position);
 
+    // Check if cursor is inside an embedded SQL region first.
+    if let Some(hover) = super::embedded::get_embedded_hover(&file, offset, state.sql_schema.as_ref()) {
+        return Ok(Some(hover));
+    }
+
     let arena = Bump::new();
     let program = parse_file_content(&arena, file.id, &file.contents);
     let resolved_names = NameResolver::new(&arena).resolve(program);

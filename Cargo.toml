@@ -112,7 +112,7 @@ xxhash-rust = { version = "0.8", features = ["xxh3"] }
 serde-sarif = "0.8"
 schemars = { version = "1.1", features = ["preserve_order"] }
 simdutf8 = { version = "0.1.5" }
-sqlparser = { version = "0.53", features = ["visitor"] }
+sqlparser = { version = "0.61", features = ["visitor"] }
 lsp-server = "0.7"
 lsp-types = "0.97"
 crossbeam-channel = "0.5"
@@ -136,6 +136,7 @@ mago-algebra = { workspace = true }
 mago-codex = { workspace = true }
 mago-guard = { workspace = true }
 mago-orchestrator = { workspace = true }
+mago-embedded-languages = { workspace = true }
 serde = { workspace = true }
 clap = { workspace = true }
 clap_complete = { workspace = true }
