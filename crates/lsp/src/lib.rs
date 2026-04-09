@@ -5,6 +5,7 @@ use mago_database::Database;
 use mago_orchestrator::service::incremental_analysis::IncrementalAnalysisService;
 use mago_syntax::settings::ParserSettings;
 
+pub mod cache;
 pub mod convert;
 pub mod error;
 pub mod handlers;

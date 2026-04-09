@@ -31,7 +31,9 @@ lsp-server = { workspace = true }
 lsp-types = { workspace = true }
 
 # Utilities
+bincode = { workspace = true }
 bumpalo = { workspace = true }
+xxhash-rust = { workspace = true }
 crossbeam-channel = { workspace = true }
 foldhash = { workspace = true }
 serde = { workspace = true }

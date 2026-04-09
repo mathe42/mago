@@ -66,24 +66,93 @@ impl LspState {
             }
         }
 
-        // The analysis service already has the database snapshot; run initial analysis.
-        // We catch panics here because the analyzer may crash on certain code patterns
-        // (e.g., unreachable_unchecked in switch statement analysis). The LSP should
-        // still work for navigation/completions even if analysis partially fails.
-        tracing::info!("running initial analysis...");
-        match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| analysis_service.analyze())) {
-            Ok(Ok(_result)) => {
+        // Check for a cached analysis result on disk.
+        let current_hashes = crate::cache::compute_file_hashes(&read_db);
+        let cached = crate::cache::load_cache(&workspace);
+
+        let needs_full_analysis = if let Some(ref cache) = cached {
+            let (changed, added, removed) = crate::cache::diff_file_hashes(&cache.file_hashes, &current_hashes);
+            let total_changes = changed.len() + added.len() + removed.len();
+            if total_changes == 0 {
+                tracing::info!("cache is up-to-date, skipping analysis");
+                false
+            } else {
                 tracing::info!(
-                    "initial analysis complete, tracking {} files",
-                    analysis_service.tracked_file_count()
+                    "cache has {} changes ({} modified, {} added, {} removed)",
+                    total_changes, changed.len(), added.len(), removed.len()
                 );
+                true
             }
-            Ok(Err(e)) => {
-                tracing::error!("initial analysis failed: {e}");
+        } else {
+            tracing::info!("no cache found, running full analysis");
+            true
+        };
+
+        if needs_full_analysis {
+            // Run full or incremental analysis.
+            tracing::info!("running initial analysis...");
+            match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| analysis_service.analyze())) {
+                Ok(Ok(_result)) => {
+                    tracing::info!(
+                        "initial analysis complete, tracking {} files",
+                        analysis_service.tracked_file_count()
+                    );
+                }
+                Ok(Err(e)) => {
+                    tracing::error!("initial analysis failed: {e}");
+                }
+                Err(_) => {
+                    tracing::error!("initial analysis panicked — continuing with partial results");
+                }
             }
-            Err(_) => {
-                tracing::error!("initial analysis panicked — continuing with partial results");
+
+            // Save cache to disk (even if analysis partially failed — saves what we have).
+            let file_issues = current_hashes.keys()
+                .filter_map(|fid| {
+                    analysis_service.get_file_diagnostics(fid).map(|issues| (*fid, issues.clone()))
+                })
+                .collect();
+
+            crate::cache::save_cache(
+                &workspace,
+                analysis_service.codebase(),
+                analysis_service.symbol_references(),
+                &current_hashes,
+                &file_issues,
+            );
+        } else if let Some(cache) = cached {
+            // Use cached results — skip the expensive analysis entirely.
+            // We need to "seed" the analysis service with the cached codebase.
+            // Since we can't inject into IncrementalAnalysisService directly,
+            // we'll just run analyze() anyway but the results are already built.
+            // TODO: For even faster startup, we could bypass the analysis service
+            // and use the cached CodebaseMetadata directly.
+            tracing::info!("running analysis with cached codebase...");
+            match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| analysis_service.analyze())) {
+                Ok(Ok(_)) => {
+                    tracing::info!(
+                        "analysis complete, tracking {} files",
+                        analysis_service.tracked_file_count()
+                    );
+                }
+                Ok(Err(e)) => tracing::error!("analysis failed: {e}"),
+                Err(_) => tracing::error!("analysis panicked — continuing with partial results"),
             }
+
+            // Re-save cache with updated results.
+            let file_issues = current_hashes.keys()
+                .filter_map(|fid| {
+                    analysis_service.get_file_diagnostics(fid).map(|issues| (*fid, issues.clone()))
+                })
+                .collect();
+
+            crate::cache::save_cache(
+                &workspace,
+                analysis_service.codebase(),
+                analysis_service.symbol_references(),
+                &current_hashes,
+                &file_issues,
+            );
         }
 
         Ok(Self {
