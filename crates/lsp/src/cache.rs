@@ -168,3 +168,127 @@ pub fn diff_file_hashes(
 
     (changed, added, removed)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn file_id(name: &str) -> FileId {
+        FileId::new(name)
+    }
+
+    #[test]
+    fn test_diff_no_changes() {
+        let mut cached = HashMap::default();
+        cached.insert(file_id("a.php"), 111);
+        cached.insert(file_id("b.php"), 222);
+
+        let current = cached.clone();
+        let (changed, added, removed) = diff_file_hashes(&cached, &current);
+        assert!(changed.is_empty());
+        assert!(added.is_empty());
+        assert!(removed.is_empty());
+    }
+
+    #[test]
+    fn test_diff_file_changed() {
+        let mut cached = HashMap::default();
+        cached.insert(file_id("a.php"), 111);
+        cached.insert(file_id("b.php"), 222);
+
+        let mut current = HashMap::default();
+        current.insert(file_id("a.php"), 111);
+        current.insert(file_id("b.php"), 999); // changed
+
+        let (changed, added, removed) = diff_file_hashes(&cached, &current);
+        assert_eq!(changed.len(), 1);
+        assert_eq!(changed[0], file_id("b.php"));
+        assert!(added.is_empty());
+        assert!(removed.is_empty());
+    }
+
+    #[test]
+    fn test_diff_file_added() {
+        let mut cached = HashMap::default();
+        cached.insert(file_id("a.php"), 111);
+
+        let mut current = HashMap::default();
+        current.insert(file_id("a.php"), 111);
+        current.insert(file_id("new.php"), 333);
+
+        let (changed, added, removed) = diff_file_hashes(&cached, &current);
+        assert!(changed.is_empty());
+        assert_eq!(added.len(), 1);
+        assert_eq!(added[0], file_id("new.php"));
+        assert!(removed.is_empty());
+    }
+
+    #[test]
+    fn test_diff_file_removed() {
+        let mut cached = HashMap::default();
+        cached.insert(file_id("a.php"), 111);
+        cached.insert(file_id("old.php"), 222);
+
+        let mut current = HashMap::default();
+        current.insert(file_id("a.php"), 111);
+
+        let (changed, added, removed) = diff_file_hashes(&cached, &current);
+        assert!(changed.is_empty());
+        assert!(added.is_empty());
+        assert_eq!(removed.len(), 1);
+        assert_eq!(removed[0], file_id("old.php"));
+    }
+
+    #[test]
+    fn test_diff_mixed_changes() {
+        let mut cached = HashMap::default();
+        cached.insert(file_id("keep.php"), 111);
+        cached.insert(file_id("modify.php"), 222);
+        cached.insert(file_id("delete.php"), 333);
+
+        let mut current = HashMap::default();
+        current.insert(file_id("keep.php"), 111);    // unchanged
+        current.insert(file_id("modify.php"), 999);   // changed
+        current.insert(file_id("create.php"), 444);    // added
+
+        let (changed, added, removed) = diff_file_hashes(&cached, &current);
+        assert_eq!(changed.len(), 1);
+        assert_eq!(added.len(), 1);
+        assert_eq!(removed.len(), 1);
+    }
+
+    #[test]
+    fn test_cache_roundtrip() {
+        let workspace = std::env::temp_dir().join("mago-lsp-test-cache");
+        let _ = std::fs::create_dir_all(&workspace);
+
+        let mut file_hashes = HashMap::default();
+        file_hashes.insert(file_id("test.php"), 42);
+
+        // Save
+        save_cache(
+            &workspace,
+            &CodebaseMetadata::new(),
+            &SymbolReferences::new(),
+            &file_hashes,
+            &HashMap::default(),
+        );
+
+        // Load
+        let loaded = load_cache(&workspace);
+        assert!(loaded.is_some());
+        let loaded = loaded.unwrap();
+        assert_eq!(loaded.file_hashes.len(), 1);
+        assert_eq!(*loaded.file_hashes.get(&file_id("test.php")).unwrap(), 42);
+
+        // Cleanup
+        let _ = std::fs::remove_dir_all(workspace.join(".mago"));
+    }
+
+    #[test]
+    fn test_cache_invalidated_on_missing_file() {
+        let workspace = std::env::temp_dir().join("mago-lsp-test-cache-missing");
+        let loaded = load_cache(&workspace);
+        assert!(loaded.is_none());
+    }
+}
