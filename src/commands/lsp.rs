@@ -1,13 +1,20 @@
-use std::path::PathBuf;
+use std::borrow::Cow;
 use std::process::ExitCode;
 
+use clap::ColorChoice;
 use clap::Parser;
 
+use mago_database::DatabaseConfiguration;
+use mago_database::DatabaseReader;
+use mago_database::exclusion::Exclusion;
+use mago_database::file::FileType;
+use mago_database::loader::DatabaseLoader;
 use mago_prelude::Prelude;
 
 use crate::config::Configuration;
 use crate::consts::PRELUDE_BYTES;
 use crate::error::Error;
+use crate::utils::create_orchestrator;
 
 /// Start the Mago Language Server Protocol (LSP) server.
 ///
@@ -24,16 +31,65 @@ pub struct LspCommand {
 }
 
 impl LspCommand {
-    pub fn execute(self, configuration: Configuration) -> Result<ExitCode, Error> {
+    pub fn execute(self, configuration: Configuration, color_choice: ColorChoice) -> Result<ExitCode, Error> {
         let workspace = configuration.source.workspace.clone();
 
-        let prelude = if self.no_stubs {
+        // 1. Load prelude (PHP built-in stubs).
+        let Prelude { database: prelude_db, metadata, symbol_references } = if self.no_stubs {
             Prelude::default()
         } else {
             Prelude::decode(PRELUDE_BYTES).expect("Failed to decode embedded prelude")
         };
 
-        mago_lsp::run_server(workspace, prelude).map_err(|e| Error::Lsp(e.to_string()))?;
+        // 2. Build database config from mago.toml source settings.
+        let mut excludes: Vec<Exclusion<'static>> = Vec::new();
+        for pattern in &configuration.source.excludes {
+            if pattern.contains('*') {
+                excludes.push(Exclusion::Pattern(Cow::Owned(pattern.clone())));
+            } else {
+                let path = if std::path::Path::new(pattern).is_absolute() {
+                    std::path::PathBuf::from(pattern)
+                } else {
+                    workspace.join(pattern)
+                };
+                excludes.push(Exclusion::Path(Cow::Owned(path.canonicalize().unwrap_or(path))));
+            }
+        }
+        // Also exclude analyzer-specific excludes.
+        for pattern in &configuration.analyzer.excludes {
+            excludes.push(Exclusion::Pattern(Cow::Owned(pattern.clone())));
+        }
+
+        let db_config = DatabaseConfiguration {
+            workspace: Cow::Owned(workspace.clone()),
+            paths: configuration.source.paths.iter().map(|s| Cow::Owned(s.clone())).collect(),
+            includes: configuration.source.includes.iter().map(|s| Cow::Owned(s.clone())).collect(),
+            excludes,
+            extensions: configuration.source.extensions.iter().map(|s| Cow::Owned(s.clone())).collect(),
+            glob: configuration.source.glob.to_database_settings(),
+        };
+
+        let loader = DatabaseLoader::new(db_config).with_database(prelude_db);
+        let database = loader.load()?;
+
+        let host_count = database.files().filter(|f| f.file_type == FileType::Host).count();
+        tracing::info!("loaded {host_count} host files for LSP");
+
+        // 3. Create orchestrator for the analysis service (needs settings only).
+        let orchestrator = create_orchestrator(&configuration, color_choice, false, false, false);
+        let analysis_service =
+            orchestrator.get_incremental_analysis_service(database.read_only(), metadata, symbol_references);
+        let parser_settings = orchestrator.config.parser_settings;
+
+        // 4. Start the LSP server.
+        let lsp_config = mago_lsp::LspConfig {
+            workspace,
+            database,
+            analysis_service,
+            parser_settings,
+        };
+
+        mago_lsp::run_server(lsp_config).map_err(|e| Error::Lsp(e.to_string()))?;
 
         Ok(ExitCode::SUCCESS)
     }

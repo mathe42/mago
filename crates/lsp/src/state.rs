@@ -7,22 +7,16 @@ use lsp_types::Uri;
 
 use mago_codex::metadata::CodebaseMetadata;
 use mago_database::Database;
-use mago_database::DatabaseConfiguration;
 use mago_database::DatabaseReader;
-use mago_database::GlobSettings;
 use mago_database::ReadDatabase;
 use mago_database::file::File;
 use mago_database::file::FileId;
 use mago_database::file::FileType;
-use mago_database::loader::DatabaseLoader;
-use mago_orchestrator::Orchestrator;
-use mago_orchestrator::OrchestratorConfiguration;
 use mago_orchestrator::service::incremental_analysis::IncrementalAnalysisService;
-use mago_php_version::PHPVersion;
-use mago_prelude::Prelude;
 use mago_reporting::IssueCollection;
 use mago_syntax::settings::ParserSettings;
 
+use crate::LspConfig;
 use crate::convert;
 use crate::error::ServerError;
 
@@ -36,75 +30,31 @@ pub struct OpenDocument {
 }
 
 /// Central mutable state for the language server.
-///
-/// Owns the file database, analysis service, and open document tracking.
-/// All mutations happen on the main thread; analysis results are read
-/// from the `IncrementalAnalysisService`.
 pub struct LspState {
-    /// Workspace root directory.
     pub workspace: PathBuf,
-    /// The mutable file database.
     database: Database<'static>,
-    /// The incremental analysis service.
     analysis_service: IncrementalAnalysisService,
-    /// Currently open documents keyed by URI string for reliable lookup.
     open_documents: HashMap<String, OpenDocument>,
-    /// URI string → FileId mapping for quick lookups.
     uri_to_file_id: HashMap<String, FileId>,
-    /// FileId → URI reverse mapping.
     file_id_to_uri: HashMap<FileId, Uri>,
-    /// Parser settings.
     parser_settings: ParserSettings,
 }
 
 impl LspState {
-    /// Initialize the LSP state for the given workspace.
+    /// Initialize the LSP state from a pre-built config.
     ///
-    /// The `prelude` provides pre-compiled metadata for PHP built-in symbols.
-    pub fn initialize(workspace: PathBuf, prelude: Prelude) -> Result<Self, ServerError> {
+    /// The `LspConfig` is constructed by the CLI command using the Orchestrator,
+    /// ensuring the database and analysis service use the real `mago.toml` configuration.
+    pub fn initialize(config: LspConfig) -> Result<Self, ServerError> {
+        let LspConfig { workspace, database, mut analysis_service, parser_settings } = config;
+
         tracing::info!("initializing LSP state for workspace: {}", workspace.display());
 
-        let prelude_metadata = prelude.metadata;
-        let prelude_refs = prelude.symbol_references;
-        let prelude_database = prelude.database;
-
-        // Build the database configuration for the workspace.
-        let db_config = DatabaseConfiguration {
-            workspace: Cow::Owned(workspace.clone()),
-            paths: vec![Cow::Borrowed(".")],
-            includes: vec![],
-            excludes: vec![],
-            extensions: vec![Cow::Borrowed("php")],
-            glob: GlobSettings::default(),
-        };
-
-        let loader = DatabaseLoader::new(db_config).with_database(prelude_database);
-        let database = loader.load().map_err(|e| ServerError::Message(format!("failed to load database: {e}")))?;
-
-        let parser_settings = ParserSettings::default();
-
-        // Create the orchestrator to get the analysis service.
-        let orchestrator = Orchestrator::new(OrchestratorConfiguration {
-            php_version: PHPVersion::default(),
-            paths: vec![".".to_string()],
-            includes: vec![],
-            excludes: vec![],
-            extensions: vec!["php"],
-            glob: GlobSettings::default(),
-            parser_settings,
-            analyzer_settings: Default::default(),
-            linter_settings: Default::default(),
-            guard_settings: Default::default(),
-            formatter_settings: Default::default(),
-            disable_default_analyzer_plugins: false,
-            analyzer_plugins: vec![],
-            use_progress_bars: false,
-            use_colors: false,
-        });
-
-        let read_db = database.read_only();
+        let host_count = database.files().filter(|f| f.file_type == FileType::Host).count();
+        tracing::info!("loaded {host_count} host files");
 
         // Build URI mappings from the database.
+        let read_db = database.read_only();
         let mut uri_to_file_id = HashMap::default();
         let mut file_id_to_uri = HashMap::default();
         for file in read_db.files() {
@@ -116,11 +66,7 @@ impl LspState {
             }
         }
 
-        // Create the incremental analysis service.
-        let mut analysis_service =
-            orchestrator.get_incremental_analysis_service(read_db, prelude_metadata, prelude_refs);
-
-        // Run the initial full analysis.
+        // The analysis service already has the database snapshot; run initial analysis.
         tracing::info!("running initial analysis...");
         match analysis_service.analyze() {
             Ok(_result) => {
@@ -145,17 +91,12 @@ impl LspState {
         })
     }
 
-    /// Handle a document being opened in the editor.
     pub fn open_document(&mut self, uri: Uri, version: i32, content: String) {
         let file_id = self.ensure_file_id(&uri, &content);
         let key = uri.as_str().to_string();
-        self.open_documents.insert(
-            key,
-            OpenDocument { uri, file_id, version, content },
-        );
+        self.open_documents.insert(key, OpenDocument { uri, file_id, version, content });
     }
 
-    /// Handle a document being changed in the editor (full sync).
     pub fn change_document(&mut self, uri: &Uri, version: i32, content: String) {
         let key = uri.as_str();
         if let Some(doc) = self.open_documents.get_mut(key) {
@@ -165,12 +106,10 @@ impl LspState {
         }
     }
 
-    /// Handle a document being closed in the editor.
     pub fn close_document(&mut self, uri: &Uri) {
         self.open_documents.remove(uri.as_str());
     }
 
-    /// Run incremental analysis on changed files and return their FileIds.
     pub fn analyze_changes(&mut self, file_ids: &[FileId]) -> Vec<FileId> {
         let read_db = self.database.read_only();
         self.analysis_service.update_database(read_db);
@@ -184,44 +123,36 @@ impl LspState {
         }
     }
 
-    /// Get diagnostics for a specific file from the last analysis run.
     pub fn get_file_diagnostics(&self, file_id: &FileId) -> Option<&IssueCollection> {
         self.analysis_service.get_file_diagnostics(file_id)
     }
 
-    /// Get the current codebase metadata.
     pub fn codebase(&self) -> &CodebaseMetadata {
         self.analysis_service.codebase()
     }
 
-    /// Get the file database (read-only snapshot).
     pub fn database(&self) -> &ReadDatabase {
         self.analysis_service.database()
     }
 
-    /// Look up a file by its URI.
     pub fn file_id_for_uri(&self, uri: &Uri) -> Option<FileId> {
         self.uri_to_file_id.get(uri.as_str()).copied()
     }
 
-    /// Look up a URI by FileId.
     pub fn uri_for_file_id(&self, file_id: &FileId) -> Option<&Uri> {
         self.file_id_to_uri.get(file_id)
     }
 
-    /// Get a file from the database by its FileId.
     pub fn get_file(&self, file_id: &FileId) -> Option<Arc<File>> {
         self.analysis_service.database().get(file_id).ok()
     }
 
-    /// Ensure a FileId exists for the given URI, creating one if needed.
     fn ensure_file_id(&mut self, uri: &Uri, content: &str) -> FileId {
         let key = uri.as_str();
         if let Some(&id) = self.uri_to_file_id.get(key) {
             return id;
         }
 
-        // Derive the file name from the URI relative to the workspace.
         let path = convert::uri_to_path(uri).unwrap_or_else(|| PathBuf::from(uri.path().as_str()));
         let name = path
             .strip_prefix(&self.workspace)

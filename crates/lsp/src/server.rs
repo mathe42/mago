@@ -8,8 +8,8 @@ use lsp_types::TextDocumentSyncCapability;
 use lsp_types::TextDocumentSyncKind;
 use lsp_types::notification::Notification;
 use lsp_types::request::Request;
-use mago_prelude::Prelude;
 
+use crate::LspConfig;
 use crate::error::ServerError;
 use crate::handlers;
 use crate::state::LspState;
@@ -17,21 +17,19 @@ use crate::state::LspState;
 /// Run the LSP server over stdio.
 ///
 /// This blocks until the client sends a shutdown request.
-pub fn run(workspace: PathBuf, prelude: Prelude) -> Result<(), ServerError> {
+pub fn run(config: LspConfig) -> Result<(), ServerError> {
     let (connection, io_threads) = Connection::stdio();
 
     // Phase 1: Initialize handshake.
     let server_capabilities = build_capabilities();
     let capabilities_json = serde_json::to_value(server_capabilities)?;
     let init_params = connection.initialize(capabilities_json)?;
-    let init_params: InitializeParams = serde_json::from_value(init_params)?;
+    let _init_params: InitializeParams = serde_json::from_value(init_params)?;
 
-    // Determine the workspace root.
-    let workspace_root = resolve_workspace_root(&init_params, workspace);
-    tracing::info!("workspace root: {}", workspace_root.display());
+    tracing::info!("workspace root: {}", config.workspace.display());
 
-    // Phase 2: Initialize state (loads database, runs initial analysis).
-    let mut state = LspState::initialize(workspace_root, prelude)?;
+    // Phase 2: Initialize state (runs initial analysis).
+    let mut state = LspState::initialize(config)?;
     tracing::info!("LSP server initialized, entering main loop");
 
     // Phase 3: Main message loop.
