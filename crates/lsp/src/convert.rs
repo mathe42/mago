@@ -133,13 +133,25 @@ pub fn file_uri(file: &File) -> lsp_types::Uri {
 
 /// Convert a filesystem path to a `file://` URI.
 pub fn path_to_uri(path: &std::path::Path) -> lsp_types::Uri {
-    let path_str = path.to_string_lossy().replace('\\', "/");
+    let mut path_str = path.to_string_lossy().replace('\\', "/");
+    // Strip Windows extended-length path prefix (\\?\)
+    if path_str.starts_with("//?/") {
+        path_str = path_str[4..].to_string();
+    }
+    // Percent-encode characters that are invalid in URIs (spaces, etc.)
+    let path_str = path_str
+        .replace(' ', "%20")
+        .replace('#', "%23")
+        .replace('?', "%3F");
     let uri_str = if path_str.starts_with('/') {
         format!("file://{path_str}")
     } else {
         format!("file:///{path_str}")
     };
-    uri_str.parse().expect("valid URI from path")
+    uri_str.parse().unwrap_or_else(|_| {
+        // Fallback: just use the raw path
+        format!("file:///{}", path.display()).parse().expect("fallback URI")
+    })
 }
 
 /// Convert a `file://` URI to a filesystem path.
