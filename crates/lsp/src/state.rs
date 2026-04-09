@@ -67,16 +67,22 @@ impl LspState {
         }
 
         // The analysis service already has the database snapshot; run initial analysis.
+        // We catch panics here because the analyzer may crash on certain code patterns
+        // (e.g., unreachable_unchecked in switch statement analysis). The LSP should
+        // still work for navigation/completions even if analysis partially fails.
         tracing::info!("running initial analysis...");
-        match analysis_service.analyze() {
-            Ok(_result) => {
+        match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| analysis_service.analyze())) {
+            Ok(Ok(_result)) => {
                 tracing::info!(
                     "initial analysis complete, tracking {} files",
                     analysis_service.tracked_file_count()
                 );
             }
-            Err(e) => {
+            Ok(Err(e)) => {
                 tracing::error!("initial analysis failed: {e}");
+            }
+            Err(_) => {
+                tracing::error!("initial analysis panicked — continuing with partial results");
             }
         }
 

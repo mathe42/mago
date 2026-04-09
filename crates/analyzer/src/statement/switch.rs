@@ -442,9 +442,12 @@ impl<'anlyz, 'ctx, 'arena> SwitchAnalyzer<'anlyz, 'ctx, 'arena> {
         case_stmts.extend(switch_case.statements().iter().cloned());
 
         if !has_leaving_statements && !is_last {
-            let case_equality_expression = unsafe {
-                // SAFETY: this is safe for non-defaults, and defaults are always last
-                case_equality_expression.unwrap_unchecked()
+            let Some(case_equality_expression) = case_equality_expression else {
+                // Default case that is not last and has no leaving statement — skip fallthrough tracking.
+                self.has_fallthrough = true;
+                self.leftover_statements = case_stmts;
+                self.artifacts.expression_types = old_expression_types;
+                return Ok(result);
             };
 
             self.leftover_case_equality_expression =
