@@ -55,7 +55,6 @@ impl LspCommand {
                 excludes.push(Exclusion::Path(Cow::Owned(path.canonicalize().unwrap_or(path))));
             }
         }
-        // Also exclude analyzer-specific excludes.
         for pattern in &configuration.analyzer.excludes {
             excludes.push(Exclusion::Pattern(Cow::Owned(pattern.clone())));
         }
@@ -75,13 +74,15 @@ impl LspCommand {
         let host_count = database.files().filter(|f| f.file_type == FileType::Host).count();
         tracing::info!("loaded {host_count} host files for LSP");
 
-        // 3. Create orchestrator for the analysis service (needs settings only).
+        // 3. Create analysis service with real config.
         let orchestrator = create_orchestrator(&configuration, color_choice, false, false, false);
         let analysis_service =
             orchestrator.get_incremental_analysis_service(database.read_only(), metadata, symbol_references);
         let parser_settings = orchestrator.config.parser_settings;
+        let stack_size = configuration.stack_size;
 
-        // 4. Start the LSP server.
+        // 4. Start LSP on a thread with a large stack (needed for parsing very large files).
+        //    The default thread stack (1-8 MB) is too small for files like data.inc.php (46k lines).
         let lsp_config = mago_lsp::LspConfig {
             workspace,
             database,
@@ -89,7 +90,19 @@ impl LspCommand {
             parser_settings,
         };
 
-        mago_lsp::run_server(lsp_config).map_err(|e| Error::Lsp(e.to_string()))?;
+        let lsp_stack_size = stack_size.max(64 * 1024 * 1024); // at least 64 MB
+        let builder = std::thread::Builder::new()
+            .name("lsp-main".to_string())
+            .stack_size(lsp_stack_size);
+
+        let handle = builder
+            .spawn(move || mago_lsp::run_server(lsp_config))
+            .map_err(|e| Error::Lsp(format!("failed to spawn LSP thread: {e}")))?;
+
+        handle
+            .join()
+            .map_err(|_| Error::Lsp("LSP thread panicked".to_string()))?
+            .map_err(|e| Error::Lsp(e.to_string()))?;
 
         Ok(ExitCode::SUCCESS)
     }
