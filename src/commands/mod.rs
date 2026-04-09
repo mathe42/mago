@@ -65,6 +65,7 @@ use crate::commands::guard::GuardCommand;
 use crate::commands::init::InitCommand;
 use crate::commands::lint::LintCommand;
 use crate::commands::list_files::ListFilesCommand;
+use crate::commands::lsp::LspCommand;
 use crate::commands::self_update::SelfUpdateCommand;
 use crate::error::Error;
 
@@ -79,6 +80,7 @@ pub mod guard;
 pub mod init;
 pub mod lint;
 pub mod list_files;
+pub mod lsp;
 pub mod self_update;
 pub mod stdin_input;
 
@@ -209,6 +211,15 @@ pub enum MagoCommand {
     /// **Usage**: `mago format [OPTIONS]`
     #[command(name = "format")]
     Format(FormatCommand),
+
+    /// Start the Language Server Protocol (LSP) server.
+    ///
+    /// The LSP server communicates over stdio and provides diagnostics,
+    /// formatting, and other language features to editors and IDEs.
+    ///
+    /// **Usage**: `mago lsp`
+    #[command(name = "lsp")]
+    Lsp(LspCommand),
 
     /// Update Mago to the latest version.
     ///

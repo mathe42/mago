@@ -1,0 +1,11 @@
+pub mod code_action;
+pub mod completion;
+pub mod definition;
+pub mod diagnostics;
+pub mod document_symbols;
+pub mod embedded;
+pub mod formatting;
+pub mod hover;
+pub mod references;
+pub mod rename;
+pub mod text_sync;

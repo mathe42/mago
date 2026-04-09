@@ -1,0 +1,22 @@
+[package]
+name = "mago-embedded-languages"
+description = "Embedded language detection (SQL, Bash) in PHP strings for Mago"
+edition.workspace = true
+version.workspace = true
+authors.workspace = true
+license.workspace = true
+homepage.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+# Internal crates
+mago-names = { workspace = true }
+mago-span = { workspace = true }
+mago-syntax = { workspace = true }
+
+# SQL parsing
+sqlparser = { workspace = true }
+
+[lints]
+workspace = true

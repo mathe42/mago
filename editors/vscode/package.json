@@ -1,0 +1,87 @@
+{
+  "name": "mago",
+  "displayName": "Mago",
+  "description": "PHP IntelliSense powered by Mago — diagnostics, completions, hover, go-to-definition, formatting, and embedded SQL/Bash support.",
+  "version": "0.1.0",
+  "publisher": "carthage-software",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/carthage-software/mago"
+  },
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Linters",
+    "Formatters"
+  ],
+  "keywords": [
+    "php",
+    "linter",
+    "formatter",
+    "static analysis",
+    "intellisense",
+    "sql"
+  ],
+  "icon": "icon.png",
+  "activationEvents": [
+    "onLanguage:php"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "languages": [
+      {
+        "id": "php",
+        "extensions": [
+          ".php",
+          ".phtml"
+        ],
+        "aliases": [
+          "PHP",
+          "php"
+        ]
+      }
+    ],
+    "configuration": {
+      "title": "Mago",
+      "properties": {
+        "mago.path": {
+          "type": "string",
+          "default": "mago",
+          "description": "Path to the mago binary. Use an absolute path if mago is not in your PATH."
+        },
+        "mago.enableEmbeddedLanguages": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable SQL and Bash diagnostics and completions inside PHP strings."
+        },
+        "mago.trace.server": {
+          "type": "string",
+          "enum": [
+            "off",
+            "messages",
+            "verbose"
+          ],
+          "default": "off",
+          "description": "Traces the communication between VS Code and the Mago language server."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "lint": "eslint src --ext ts"
+  },
+  "dependencies": {
+    "vscode-languageclient": "^9.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/vscode": "^1.85.0",
+    "typescript": "^5.5.0"
+  }
+}

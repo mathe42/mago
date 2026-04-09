@@ -569,6 +569,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "crossbeam-channel"
+version = "0.5.15"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "82b8f8f868b36967f9606790d1903570de9ceaf870a7bf9fbbd3016d636a2cb2"
+dependencies = [
+ "crossbeam-utils",
+]
+
+[[package]]
 name = "crossbeam-deque"
 version = "0.8.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -828,6 +837,15 @@ dependencies = [
  "crc32fast",
  "miniz_oxide",
  "zlib-rs",
+]
+
+[[package]]
+name = "fluent-uri"
+version = "0.1.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "17c704e9dbe1ddd863da1e6ff3567795087b1eb201ce80d8fa81162e1516500d"
+dependencies = [
+ "bitflags 1.3.2",
 ]
 
 [[package]]
@@ -1296,6 +1314,32 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5e5032e24019045c762d3c0f28f5b6b8bbf38563a65908389bf7978758920897"
 
 [[package]]
+name = "lsp-server"
+version = "0.7.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7d6ada348dbc2703cbe7637b2dda05cff84d3da2819c24abcb305dd613e0ba2e"
+dependencies = [
+ "crossbeam-channel",
+ "log",
+ "serde",
+ "serde_derive",
+ "serde_json",
+]
+
+[[package]]
+name = "lsp-types"
+version = "0.97.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "53353550a17c04ac46c585feb189c2db82154fc84b79c7a66c96c2c644f66071"
+dependencies = [
+ "bitflags 1.3.2",
+ "fluent-uri",
+ "serde",
+ "serde_json",
+ "serde_repr",
+]
+
+[[package]]
 name = "mago"
 version = "1.19.0"
 dependencies = [
@@ -1319,6 +1363,7 @@ dependencies = [
  "mago-formatter",
  "mago-guard",
  "mago-linter",
+ "mago-lsp",
  "mago-names",
  "mago-orchestrator",
  "mago-php-version",
@@ -1479,6 +1524,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "mago-embedded-languages"
+version = "1.19.0"
+dependencies = [
+ "mago-names",
+ "mago-span",
+ "mago-syntax",
+ "sqlparser",
+]
+
+[[package]]
 name = "mago-fingerprint"
 version = "1.19.0"
 dependencies = [
@@ -1554,6 +1609,34 @@ dependencies = [
  "mago-text-edit",
  "regex",
  "schemars",
+ "serde",
+ "serde_json",
+ "tracing",
+]
+
+[[package]]
+name = "mago-lsp"
+version = "1.19.0"
+dependencies = [
+ "bumpalo",
+ "crossbeam-channel",
+ "foldhash 0.2.0",
+ "lsp-server",
+ "lsp-types",
+ "mago-atom",
+ "mago-codex",
+ "mago-database",
+ "mago-docblock",
+ "mago-embedded-languages",
+ "mago-formatter",
+ "mago-names",
+ "mago-orchestrator",
+ "mago-php-version",
+ "mago-prelude",
+ "mago-reporting",
+ "mago-span",
+ "mago-syntax",
+ "mago-text-edit",
  "serde",
  "serde_json",
  "tracing",
@@ -2533,6 +2616,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "serde_repr"
+version = "0.1.20"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "175ee3e80ae9982737ca543e96133087cbd9a485eecc3bc4de9c1a37b47ea59c"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.117",
+]
+
+[[package]]
 name = "serde_spanned"
 version = "1.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2599,6 +2693,27 @@ name = "smallvec"
 version = "1.15.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "67b1b7a3b5fe4f1376887184045fcf45c69e92af734b7aaddc05fb777b6fbd03"
+
+[[package]]
+name = "sqlparser"
+version = "0.53.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "05a528114c392209b3264855ad491fcce534b94a38771b0a0b97a79379275ce8"
+dependencies = [
+ "log",
+ "sqlparser_derive",
+]
+
+[[package]]
+name = "sqlparser_derive"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "da5fc6819faabb412da764b99d3b713bb55083c11e7e0c00144d386cd6a1939c"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.117",
+]
 
 [[package]]
 name = "stable_deref_trait"

@@ -230,6 +230,12 @@ pub enum Error {
 
     /// An unknown formatter preset was requested.
     UnknownFormatterPreset(String),
+
+    /// Language server error.
+    ///
+    /// This error occurs when the LSP server encounters an error during
+    /// initialization or operation.
+    Lsp(String),
 }
 
 /// Formats the error for user-friendly display.
@@ -276,6 +282,7 @@ impl std::fmt::Display for Error {
             Self::UnknownFormatterPreset(preset) => {
                 write!(f, "Unknown formatter preset: `{preset}`. Available presets are: laravel, psr12, default")
             }
+            Self::Lsp(error) => write!(f, "Language server error: {error}"),
         }
     }
 }

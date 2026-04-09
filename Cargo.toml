@@ -51,6 +51,8 @@ mago-semantics = { path = "crates/semantics", version = "1.19.0" }
 mago-collector = { path = "crates/collector", version = "1.19.0" }
 mago-database = { path = "crates/database", version = "1.19.0" }
 mago-guard = { path = "crates/guard", version = "1.19.0" }
+mago-embedded-languages = { path = "crates/embedded-languages", version = "1.19.0" }
+mago-lsp = { path = "crates/lsp", version = "1.19.0" }
 mago-orchestrator = { path = "crates/orchestrator", version = "1.19.0" }
 tracing = { version = "0.1.40" }
 foldhash = "0.2"
@@ -110,6 +112,10 @@ xxhash-rust = { version = "0.8", features = ["xxh3"] }
 serde-sarif = "0.8"
 schemars = { version = "1.1", features = ["preserve_order"] }
 simdutf8 = { version = "0.1.5" }
+sqlparser = { version = "0.53", features = ["visitor"] }
+lsp-server = "0.7"
+lsp-types = "0.97"
+crossbeam-channel = "0.5"
 
 [dependencies]
 mago-atom = { workspace = true }
@@ -118,6 +124,7 @@ mago-syntax-core = { workspace = true }
 mago-reporting = { workspace = true }
 mago-database = { workspace = true }
 mago-linter = { workspace = true }
+mago-lsp = { workspace = true }
 mago-names = { workspace = true }
 mago-formatter = { workspace = true }
 mago-text-edit = { workspace = true }
