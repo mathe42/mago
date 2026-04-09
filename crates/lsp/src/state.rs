@@ -38,6 +38,7 @@ pub struct LspState {
     uri_to_file_id: HashMap<String, FileId>,
     file_id_to_uri: HashMap<FileId, Uri>,
     parser_settings: ParserSettings,
+    pub ignored_diagnostics: Vec<mago_reporting::IgnoreEntry>,
 }
 
 impl LspState {
@@ -46,7 +47,7 @@ impl LspState {
     /// The `LspConfig` is constructed by the CLI command using the Orchestrator,
     /// ensuring the database and analysis service use the real `mago.toml` configuration.
     pub fn initialize(config: LspConfig) -> Result<Self, ServerError> {
-        let LspConfig { workspace, database, mut analysis_service, parser_settings } = config;
+        let LspConfig { workspace, database, mut analysis_service, parser_settings, ignored_diagnostics } = config;
 
         tracing::info!("initializing LSP state for workspace: {}", workspace.display());
 
@@ -163,6 +164,7 @@ impl LspState {
             uri_to_file_id,
             file_id_to_uri,
             parser_settings,
+            ignored_diagnostics,
         })
     }
 

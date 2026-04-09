@@ -88,6 +88,7 @@ impl LspCommand {
             database,
             analysis_service,
             parser_settings,
+            ignored_diagnostics: configuration.analyzer.ignore.clone(),
         };
 
         let lsp_stack_size = stack_size.max(64 * 1024 * 1024); // at least 64 MB

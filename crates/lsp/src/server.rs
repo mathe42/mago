@@ -54,6 +54,11 @@ fn build_capabilities() -> ServerCapabilities {
             ]),
             ..Default::default()
         }),
+        signature_help_provider: Some(lsp_types::SignatureHelpOptions {
+            trigger_characters: Some(vec!["(".to_string(), ",".to_string()]),
+            retrigger_characters: None,
+            work_done_progress_options: Default::default(),
+        }),
         definition_provider: Some(lsp_types::OneOf::Left(true)),
         references_provider: Some(lsp_types::OneOf::Left(true)),
         rename_provider: Some(lsp_types::OneOf::Left(true)),
@@ -61,6 +66,8 @@ fn build_capabilities() -> ServerCapabilities {
         document_symbol_provider: Some(lsp_types::OneOf::Left(true)),
         document_formatting_provider: Some(lsp_types::OneOf::Left(true)),
         code_action_provider: Some(lsp_types::CodeActionProviderCapability::Simple(true)),
+        workspace_symbol_provider: Some(lsp_types::OneOf::Left(true)),
+        inlay_hint_provider: Some(lsp_types::OneOf::Left(true)),
         ..ServerCapabilities::default()
     }
 }
@@ -125,6 +132,15 @@ fn handle_request(
             let response = lsp_server::Response::new_ok(id, result);
             connection.sender.send(Message::Response(response)).ok();
         }
+        lsp_types::request::SignatureHelpRequest::METHOD => {
+            let (id, params) = req.extract::<lsp_types::SignatureHelpParams>(
+                lsp_types::request::SignatureHelpRequest::METHOD,
+            )?;
+
+            let result = handlers::signature_help::handle_signature_help(state, params)?;
+            let response = lsp_server::Response::new_ok(id, result);
+            connection.sender.send(Message::Response(response)).ok();
+        }
         lsp_types::request::GotoDefinition::METHOD => {
             let (id, params) = req.extract::<lsp_types::GotoDefinitionParams>(
                 lsp_types::request::GotoDefinition::METHOD,
@@ -185,6 +201,24 @@ fn handle_request(
             )?;
 
             let result = handlers::formatting::handle_formatting(state, params)?;
+            let response = lsp_server::Response::new_ok(id, result);
+            connection.sender.send(Message::Response(response)).ok();
+        }
+        lsp_types::request::WorkspaceSymbolRequest::METHOD => {
+            let (id, params) = req.extract::<lsp_types::WorkspaceSymbolParams>(
+                lsp_types::request::WorkspaceSymbolRequest::METHOD,
+            )?;
+
+            let result = handlers::workspace_symbol::handle_workspace_symbol(state, params)?;
+            let response = lsp_server::Response::new_ok(id, result);
+            connection.sender.send(Message::Response(response)).ok();
+        }
+        lsp_types::request::InlayHintRequest::METHOD => {
+            let (id, params) = req.extract::<lsp_types::InlayHintParams>(
+                lsp_types::request::InlayHintRequest::METHOD,
+            )?;
+
+            let result = handlers::inlay_hints::handle_inlay_hints(state, params)?;
             let response = lsp_server::Response::new_ok(id, result);
             connection.sender.send(Message::Response(response)).ok();
         }

@@ -13,7 +13,7 @@ export function activate(context: ExtensionContext) {
   let magoPath: string = config.get("path", "mago");
   // If using the default "mago" from PATH, try the local debug build first.
   if (magoPath === "mago") {
-    const localBuild = "C:/Users/Sebastian/mago/target/debug/mago.exe";
+    const localBuild = "C:/Users/ms/mago/target/debug/mago.exe";
     try {
       const fs = require("fs");
       if (fs.existsSync(localBuild)) {

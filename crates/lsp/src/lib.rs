@@ -3,6 +3,7 @@ use std::path::PathBuf;
 use error::ServerError;
 use mago_database::Database;
 use mago_orchestrator::service::incremental_analysis::IncrementalAnalysisService;
+use mago_reporting::IgnoreEntry;
 use mago_syntax::settings::ParserSettings;
 
 pub mod cache;
@@ -19,6 +20,8 @@ pub struct LspConfig {
     pub database: Database<'static>,
     pub analysis_service: IncrementalAnalysisService,
     pub parser_settings: ParserSettings,
+    /// Analyzer ignore rules from `[analyzer] ignore` in mago.toml.
+    pub ignored_diagnostics: Vec<IgnoreEntry>,
 }
 
 /// Starts the LSP server over stdio.
